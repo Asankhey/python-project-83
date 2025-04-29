@@ -61,3 +61,13 @@ def show_url(id):
             row = cur.fetchone()
             url = dict(id=row[0], name=row[1], created_at=row[2])
     return render_template('url.html', url=url)
+
+
+@app.route('/urls')
+def show_urls():
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id, name, created_at FROM urls ORDER BY id DESC")
+            rows = cur.fetchall()
+            urls = [{'id': row[0], 'name': row[1], 'created_at': row[2]} for row in rows]
+    return render_template('urls.html', urls=urls)
