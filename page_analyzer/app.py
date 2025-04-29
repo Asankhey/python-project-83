@@ -60,14 +60,46 @@ def show_url(id):
             cur.execute("SELECT id, name, created_at FROM urls WHERE id = %s", (id,))
             row = cur.fetchone()
             url = dict(id=row[0], name=row[1], created_at=row[2])
-    return render_template('url.html', url=url)
+
+            cur.execute(
+                "SELECT id, status_code, created_at FROM url_checks WHERE url_id = %s ORDER BY id DESC",
+                (id,)
+            )
+            rows = cur.fetchall()
+            checks = [{'id': r[0], 'status_code': r[1], 'created_at': r[2]} for r in rows]
+
+    return render_template('url.html', url=url, checks=checks)
+
+
+@app.route('/urls/<int:id>/checks', methods=['POST'])
+def run_check(id):
+    created_at = datetime.now()
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO url_checks (url_id, created_at) VALUES (%s, %s)",
+                (id, created_at)
+            )
+    flash('Page checked successfully', 'success')
+    return redirect(url_for('show_url', id=id))
 
 
 @app.route('/urls')
 def urls_list():
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, name, created_at FROM urls ORDER BY id DESC")
+            cur.execute("""
+                SELECT u.id, u.name, u.created_at, MAX(c.created_at)
+                FROM urls u
+                LEFT JOIN url_checks c ON u.id = c.url_id
+                GROUP BY u.id
+                ORDER BY u.id DESC
+            """)
             rows = cur.fetchall()
-            urls = [{'id': r[0], 'name': r[1], 'created_at': r[2]} for r in rows]
+            urls = [{
+                'id': r[0],
+                'name': r[1],
+                'created_at': r[2],
+                'last_check': r[3]
+            } for r in rows]
     return render_template('urls.html', urls=urls)

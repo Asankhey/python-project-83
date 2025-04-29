@@ -8,23 +8,49 @@
 </head>
 <body>
   <div class="container py-5">
-    <h1 class="mb-4">Site {{ url.id }}</h1>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <h1 class="mb-4">Site {{ url.name }}</h1>
+
     <table class="table" data-test="url">
       <tbody>
-        <tr>
-          <td>ID</td>
-          <td>{{ url.id }}</td>
-        </tr>
-        <tr>
-          <td>Name</td>
-          <td>{{ url.name }}</td>
-        </tr>
-        <tr>
-          <td>Created at</td>
-          <td>{{ url.created_at }}</td>
-        </tr>
+        <tr><td>ID</td><td>{{ url.id }}</td></tr>
+        <tr><td>Name</td><td>{{ url.name }}</td></tr>
+        <tr><td>Created at</td><td>{{ url.created_at }}</td></tr>
       </tbody>
     </table>
+
+    <form method="post" action="{{ url_for('run_check', id=url.id) }}">
+      <button type="submit" class="btn btn-primary mb-3">Run check</button>
+    </form>
+
+    {% if checks %}
+    <h2 class="h4">Checks</h2>
+    <table class="table" data-test="checks">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Status</th>
+          <th>Created at</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for check in checks %}
+        <tr>
+          <td>{{ check.id }}</td>
+          <td>{{ check.status_code or '—' }}</td>
+          <td>{{ check.created_at }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
   </div>
 </body>
 </html>
