@@ -64,10 +64,10 @@ def show_url(id):
 
 
 @app.route('/urls')
-def show_urls():
+def urls_list():
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT id, name, created_at FROM urls ORDER BY id DESC")
             rows = cur.fetchall()
-            urls = [{'id': row[0], 'name': row[1], 'created_at': row[2]} for row in rows]
+            urls = [{'id': r[0], 'name': r[1], 'created_at': r[2]} for r in rows]
     return render_template('urls.html', urls=urls)
