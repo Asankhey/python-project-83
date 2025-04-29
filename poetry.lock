@@ -219,7 +219,7 @@ version = "0.6.17"
 description = "An extremely fast Python package and project manager, written in Rust."
 optional = false
 python-versions = ">=3.8"
-groups = ["dev"]
+groups = ["main"]
 files = [
     {file = "uv-0.6.17-py3-none-linux_armv6l.whl", hash = "sha256:8e8d084e2f90e2e0648d4b3c3d5fc92669b2764b5c34f276de6d572cf5e498bf"},
     {file = "uv-0.6.17-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:094026a024818b0c1d2c5794c9b5c20f6b97c74335e7ae088ac121afbae1fd7e"},
@@ -262,4 +262,4 @@ watchdog = ["watchdog (>=2.3)"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12"
-content-hash = "322de17263becee38871b3190cf5f29c8014bb4bee33ca73324010268c1348fe"
+content-hash = "2d3bf60990caca63c19da7560447180f42e26687ac723d5f26ebc5537b74d8fb"
