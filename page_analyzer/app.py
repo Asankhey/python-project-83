@@ -6,6 +6,7 @@ from psycopg2.errors import UniqueViolation
 from dotenv import load_dotenv
 from datetime import datetime
 import validators
+import requests
 
 load_dotenv()
 DATABASE_URL = os.getenv('DATABASE_URL')
@@ -73,13 +74,31 @@ def show_url(id):
 
 @app.route('/urls/<int:id>/checks', methods=['POST'])
 def run_check(id):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT name FROM urls WHERE id = %s", (id,))
+            row = cur.fetchone()
+            if row is None:
+                flash('URL not found', 'danger')
+                return redirect(url_for('index'))
+            url = row[0]
+
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        status_code = response.status_code
+    except Exception:
+        flash('Произошла ошибка при проверке', 'danger')
+        return redirect(url_for('show_url', id=id))
+
     created_at = datetime.now()
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO url_checks (url_id, created_at) VALUES (%s, %s)",
-                (id, created_at)
+                "INSERT INTO url_checks (url_id, status_code, created_at) VALUES (%s, %s, %s)",
+                (id, status_code, created_at)
             )
+
     flash('Page checked successfully', 'success')
     return redirect(url_for('show_url', id=id))
 
@@ -89,7 +108,7 @@ def urls_list():
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT u.id, u.name, u.created_at, MAX(c.created_at)
+                SELECT u.id, u.name, u.created_at, MAX(c.created_at), MAX(c.status_code)
                 FROM urls u
                 LEFT JOIN url_checks c ON u.id = c.url_id
                 GROUP BY u.id
@@ -100,6 +119,7 @@ def urls_list():
                 'id': r[0],
                 'name': r[1],
                 'created_at': r[2],
-                'last_check': r[3]
+                'last_check': r[3],
+                'status_code': r[4]
             } for r in rows]
     return render_template('urls.html', urls=urls)
