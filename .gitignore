@@ -1,0 +1,7 @@
+.env
+.DS_Store
+*.pyc
+__pycache__/
+poetry.lock
+uv.lock
+build.sh.save
