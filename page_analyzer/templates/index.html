@@ -9,7 +9,25 @@
 <body>
   <div class="container py-5">
     <h1 class="mb-4">Page Analyzer</h1>
-    <p class="lead">Welcome to the SEO Page Analyzer project!</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} mb-3" role="alert">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form action="{{ url_for('add_url') }}" method="post" class="row gy-2 gx-3 align-items-center">
+      <div class="col-auto">
+        <input type="text" name="url" class="form-control" placeholder="https://example.com" required>
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Submit</button>
+      </div>
+    </form>
   </div>
 </body>
 </html>
