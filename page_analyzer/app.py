@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from datetime import datetime
 import validators
 import requests
+from bs4 import BeautifulSoup
 
 load_dotenv()
 DATABASE_URL = os.getenv('DATABASE_URL')
@@ -63,11 +64,26 @@ def show_url(id):
             url = dict(id=row[0], name=row[1], created_at=row[2])
 
             cur.execute(
-                "SELECT id, status_code, created_at FROM url_checks WHERE url_id = %s ORDER BY id DESC",
+                """
+                SELECT id, status_code, h1, title, description, created_at
+                FROM url_checks
+                WHERE url_id = %s
+                ORDER BY id DESC
+                """,
                 (id,)
             )
             rows = cur.fetchall()
-            checks = [{'id': r[0], 'status_code': r[1], 'created_at': r[2]} for r in rows]
+            checks = [
+                {
+                    'id': r[0],
+                    'status_code': r[1],
+                    'h1': r[2],
+                    'title': r[3],
+                    'description': r[4],
+                    'created_at': r[5]
+                }
+                for r in rows
+            ]
 
     return render_template('url.html', url=url, checks=checks)
 
@@ -86,6 +102,17 @@ def run_check(id):
     try:
         response = requests.get(url)
         response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        h1_tag = soup.find('h1')
+        h1 = h1_tag.text.strip() if h1_tag else ''
+
+        title_tag = soup.title
+        title = title_tag.string.strip() if title_tag and title_tag.string else ''
+
+        meta_tag = soup.find('meta', attrs={'name': 'description'})
+        description = meta_tag.get('content', '').strip() if meta_tag else ''
+
         status_code = response.status_code
     except Exception:
         flash('Произошла ошибка при проверке', 'danger')
@@ -95,8 +122,11 @@ def run_check(id):
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "INSERT INTO url_checks (url_id, status_code, created_at) VALUES (%s, %s, %s)",
-                (id, status_code, created_at)
+                """
+                INSERT INTO url_checks (url_id, status_code, h1, title, description, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (id, status_code, h1, title, description, created_at)
             )
 
     flash('Страница успешно проверена', 'success')
