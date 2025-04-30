@@ -29,7 +29,7 @@ def add_url():
     url = request.form.get('url')
 
     if not url or not validators.url(url) or len(url) > 255:
-        flash('Invalid URL', 'danger')
+        flash('Некорректный URL', 'danger')
         return render_template('index.html'), 422
 
     parsed_url = urlparse(url)
@@ -43,14 +43,14 @@ def add_url():
                     (normalized_url, datetime.now())
                 )
                 url_id = cur.fetchone()[0]
-                flash('Page successfully added', 'success')
+                flash('Страница успешно добавлена', 'success')
                 return redirect(url_for('show_url', id=url_id))
     except UniqueViolation:
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT id FROM urls WHERE name = %s", (normalized_url,))
                 url_id = cur.fetchone()[0]
-                flash('Page already exists', 'info')
+                flash('Страница уже существует', 'info')
                 return redirect(url_for('show_url', id=url_id))
 
 
@@ -79,7 +79,7 @@ def run_check(id):
             cur.execute("SELECT name FROM urls WHERE id = %s", (id,))
             row = cur.fetchone()
             if row is None:
-                flash('URL not found', 'danger')
+                flash('Страница не найдена', 'danger')
                 return redirect(url_for('index'))
             url = row[0]
 
@@ -99,7 +99,7 @@ def run_check(id):
                 (id, status_code, created_at)
             )
 
-    flash('Page checked successfully', 'success')
+    flash('Страница успешно проверена', 'success')
     return redirect(url_for('show_url', id=id))
 
 
