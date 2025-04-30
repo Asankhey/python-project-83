@@ -30,7 +30,7 @@ def add_url():
     url = request.form.get('url')
 
     if not url or not validators.url(url) or len(url) > 255:
-        flash('Некорректный URL', 'danger')
+        flash('Invalid URL', 'danger')
         return render_template('index.html'), 422
 
     parsed_url = urlparse(url)
@@ -40,18 +40,24 @@ def add_url():
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "INSERT INTO urls (name, created_at) VALUES (%s, %s) RETURNING id",
+                    """
+                    INSERT INTO urls (name, created_at)
+                    VALUES (%s, %s) RETURNING id
+                    """,
                     (normalized_url, datetime.now())
                 )
                 url_id = cur.fetchone()[0]
-                flash('Страница успешно добавлена', 'success')
+                flash('Page successfully added', 'success')
                 return redirect(url_for('show_url', id=url_id))
     except UniqueViolation:
         with get_connection() as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT id FROM urls WHERE name = %s", (normalized_url,))
+                cur.execute(
+                    "SELECT id FROM urls WHERE name = %s",
+                    (normalized_url,)
+                )
                 url_id = cur.fetchone()[0]
-                flash('Страница уже существует', 'info')
+                flash('Page already exists', 'info')
                 return redirect(url_for('show_url', id=url_id))
 
 
@@ -59,7 +65,14 @@ def add_url():
 def show_url(id):
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, name, created_at FROM urls WHERE id = %s", (id,))
+            cur.execute(
+                """
+                SELECT id, name, created_at
+                FROM urls
+                WHERE id = %s
+                """,
+                (id,)
+            )
             row = cur.fetchone()
             url = dict(id=row[0], name=row[1], created_at=row[2])
 
@@ -80,9 +93,8 @@ def show_url(id):
                     'h1': r[2],
                     'title': r[3],
                     'description': r[4],
-                    'created_at': r[5]
-                }
-                for r in rows
+                    'created_at': r[5],
+                } for r in rows
             ]
 
     return render_template('url.html', url=url, checks=checks)
@@ -95,25 +107,20 @@ def run_check(id):
             cur.execute("SELECT name FROM urls WHERE id = %s", (id,))
             row = cur.fetchone()
             if row is None:
-                flash('Страница не найдена', 'danger')
+                flash('URL not found', 'danger')
                 return redirect(url_for('index'))
             url = row[0]
 
     try:
         response = requests.get(url)
         response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        h1_tag = soup.find('h1')
-        h1 = h1_tag.text.strip() if h1_tag else ''
-
-        title_tag = soup.title
-        title = title_tag.string.strip() if title_tag and title_tag.string else ''
-
-        meta_tag = soup.find('meta', attrs={'name': 'description'})
-        description = meta_tag.get('content', '').strip() if meta_tag else ''
-
         status_code = response.status_code
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+        h1_tag = soup.h1.string.strip() if soup.h1 else ''
+        title_tag = soup.title.string.strip() if soup.title else ''
+        meta_tag = soup.find('meta', attrs={'name': 'description'})
+        description = meta_tag['content'].strip() if meta_tag else ''
     except Exception:
         flash('Произошла ошибка при проверке', 'danger')
         return redirect(url_for('show_url', id=id))
@@ -123,13 +130,14 @@ def run_check(id):
         with conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO url_checks (url_id, status_code, h1, title, description, created_at)
+                INSERT INTO url_checks
+                (url_id, status_code, h1, title, description, created_at)
                 VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                (id, status_code, h1, title, description, created_at)
+                (id, status_code, h1_tag, title_tag, description, created_at)
             )
 
-    flash('Страница успешно проверена', 'success')
+    flash('Page checked successfully', 'success')
     return redirect(url_for('show_url', id=id))
 
 
@@ -137,19 +145,25 @@ def run_check(id):
 def urls_list():
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
-                SELECT u.id, u.name, u.created_at, MAX(c.created_at), MAX(c.status_code)
+            cur.execute(
+                """
+                SELECT u.id, u.name, u.created_at,
+                       MAX(c.created_at), MAX(c.status_code)
                 FROM urls u
                 LEFT JOIN url_checks c ON u.id = c.url_id
                 GROUP BY u.id
                 ORDER BY u.id DESC
-            """)
+                """
+            )
             rows = cur.fetchall()
-            urls = [{
-                'id': r[0],
-                'name': r[1],
-                'created_at': r[2],
-                'last_check': r[3],
-                'status_code': r[4]
-            } for r in rows]
+            urls = [
+                {
+                    'id': r[0],
+                    'name': r[1],
+                    'created_at': r[2],
+                    'last_check': r[3],
+                    'status_code': r[4]
+                } for r in rows
+            ]
+
     return render_template('urls.html', urls=urls)
