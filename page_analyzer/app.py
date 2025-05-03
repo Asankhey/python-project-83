@@ -117,10 +117,22 @@ def run_check(id):
         status_code = response.status_code
 
         soup = BeautifulSoup(response.text, 'html.parser')
-        h1_tag = soup.h1.string.strip() if soup.h1 and soup.h1.string else ''
-        title_tag = soup.title.string.strip() if soup.title and soup.title.string else ''
+        h1_tag = (
+            soup.h1.string.strip()
+            if soup.h1 and soup.h1.string
+            else ''
+        )
+        title_tag = (
+            soup.title.string.strip()
+            if soup.title and soup.title.string
+            else ''
+        )
         meta_tag = soup.find('meta', attrs={'name': 'description'})
-        description = meta_tag['content'].strip() if meta_tag and meta_tag.get('content') else ''
+        description = (
+            meta_tag['content'].strip()
+            if meta_tag and meta_tag.get('content')
+            else ''
+        )
     except Exception:
         flash('Произошла ошибка при проверке', 'danger')
         return redirect(url_for('show_url', id=id))
