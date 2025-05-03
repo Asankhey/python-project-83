@@ -24,9 +24,9 @@
         <tr>
           <td>{{ url.id }}</td>
           <td><a href="{{ url_for('show_url', id=url.id) }}">{{ url.name }}</a></td>
-          <td>{{ url.created_at }}</td>
-          <td>{{ url.last_check.created_at if url.last_check else '' }}</td>
-          <td>{{ url.last_check.status_code if url.last_check else '' }}</td>
+          <td>{{ url.created_at.strftime('%Y-%m-%d') }}</td>
+          <td>{{ url.last_check.strftime('%Y-%m-%d') if url.last_check else '—' }}</td>
+          <td>{{ url.status_code if url.status_code else '—' }}</td>
         </tr>
         {% endfor %}
       </tbody>
