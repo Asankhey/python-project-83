@@ -9,7 +9,6 @@
 <body>
   <div class="container py-5">
     <h1 class="mb-4">Сайты</h1>
-
     <table class="table" data-test="urls">
       <thead>
         <tr>
@@ -26,8 +25,8 @@
           <td>{{ url.id }}</td>
           <td><a href="{{ url_for('show_url', id=url.id) }}">{{ url.name }}</a></td>
           <td>{{ url.created_at }}</td>
-          <td>{{ url.last_check or '—' }}</td>
-          <td>{{ url.status_code or '—' }}</td>
+          <td>{{ url.last_check.created_at if url.last_check else '' }}</td>
+          <td>{{ url.last_check.status_code if url.last_check else '' }}</td>
         </tr>
         {% endfor %}
       </tbody>
