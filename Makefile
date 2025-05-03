@@ -12,3 +12,6 @@ render-start:
 
 build:
 	./build.sh
+
+test:
+	uv run pytest -vv

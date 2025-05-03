@@ -30,7 +30,7 @@ def add_url():
     url = request.form.get('url')
 
     if not url or not validators.url(url) or len(url) > 255:
-        flash('Invalid URL', 'danger')
+        flash('Некорректный URL', 'danger')
         return render_template('index.html'), 422
 
     parsed_url = urlparse(url)
@@ -47,7 +47,7 @@ def add_url():
                     (normalized_url, datetime.now())
                 )
                 url_id = cur.fetchone()[0]
-                flash('Page successfully added', 'success')
+                flash('Страница успешно добавлена', 'success')
                 return redirect(url_for('show_url', id=url_id))
     except UniqueViolation:
         with get_connection() as conn:
@@ -57,7 +57,7 @@ def add_url():
                     (normalized_url,)
                 )
                 url_id = cur.fetchone()[0]
-                flash('Page already exists', 'info')
+                flash('Страница уже существует', 'info')
                 return redirect(url_for('show_url', id=url_id))
 
 
@@ -117,10 +117,10 @@ def run_check(id):
         status_code = response.status_code
 
         soup = BeautifulSoup(response.text, 'html.parser')
-        h1_tag = soup.h1.string.strip() if soup.h1 else ''
-        title_tag = soup.title.string.strip() if soup.title else ''
+        h1_tag = soup.h1.string.strip() if soup.h1 and soup.h1.string else ''
+        title_tag = soup.title.string.strip() if soup.title and soup.title.string else ''
         meta_tag = soup.find('meta', attrs={'name': 'description'})
-        description = meta_tag['content'].strip() if meta_tag else ''
+        description = meta_tag['content'].strip() if meta_tag and meta_tag.get('content') else ''
     except Exception:
         flash('Произошла ошибка при проверке', 'danger')
         return redirect(url_for('show_url', id=id))
@@ -137,7 +137,7 @@ def run_check(id):
                 (id, status_code, h1_tag, title_tag, description, created_at)
             )
 
-    flash('Page checked successfully', 'success')
+    flash('Страница успешно проверена', 'success')
     return redirect(url_for('show_url', id=id))
 
 
