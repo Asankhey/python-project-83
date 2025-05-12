@@ -6,4 +6,4 @@
 ## Demonstration
 
 Check out the demo version deployed on Render:  
-🔗 [https://page-analyzer-ybxx.onrender.com](https://page-analyzer-ybxx.onrender.com)
+🔗 [https://page-analyzer-xybx.onrender.com](https://page-analyzer-xybx.onrender.com)
