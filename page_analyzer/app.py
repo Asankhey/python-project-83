@@ -1,23 +1,19 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from urllib.parse import urlparse
 import os
-import psycopg2
 from psycopg2.errors import UniqueViolation
 from dotenv import load_dotenv
-from datetime import datetime
 import validators
 import requests
 from bs4 import BeautifulSoup
+
+from page_analyzer import db
 
 load_dotenv()
 DATABASE_URL = os.getenv('DATABASE_URL')
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-
-
-def get_connection():
-    return psycopg2.connect(DATABASE_URL)
 
 
 @app.route('/')
@@ -31,123 +27,57 @@ def add_url():
 
     if not url or not validators.url(url) or len(url) > 255:
         flash('Некорректный URL', 'danger')
-        return render_template('index.html'), 422
+        return render_template('index.html')
 
     parsed_url = urlparse(url)
     normalized_url = f'{parsed_url.scheme}://{parsed_url.netloc}'
 
     try:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    INSERT INTO urls (name, created_at)
-                    VALUES (%s, %s) RETURNING id
-                    """,
-                    (normalized_url, datetime.now())
-                )
-                url_id = cur.fetchone()[0]
-                flash('Страница успешно добавлена', 'success')
-                return redirect(url_for('show_url', id=url_id))
+        with db.get_connection(DATABASE_URL) as conn:
+            url_id = db.insert_url(conn, normalized_url)
+            flash('Страница успешно добавлена', 'success')
     except UniqueViolation:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT id FROM urls WHERE name = %s",
-                    (normalized_url,)
-                )
-                url_id = cur.fetchone()[0]
-                flash('Страница уже существует', 'info')
-                return redirect(url_for('show_url', id=url_id))
+        with db.get_connection(DATABASE_URL) as conn:
+            row = db.find_url_by_name(conn, normalized_url)
+            url_id = row['id']
+            flash('Страница уже существует', 'info')
+
+    return redirect(url_for('show_url', id=url_id))
 
 
 @app.route('/urls/<int:id>')
 def show_url(id):
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT id, name, created_at
-                FROM urls
-                WHERE id = %s
-                """,
-                (id,)
-            )
-            row = cur.fetchone()
-            url = dict(id=row[0], name=row[1], created_at=row[2])
-
-            cur.execute(
-                """
-                SELECT id, status_code, h1, title, description, created_at
-                FROM url_checks
-                WHERE url_id = %s
-                ORDER BY id DESC
-                """,
-                (id,)
-            )
-            rows = cur.fetchall()
-            checks = [
-                {
-                    'id': r[0],
-                    'status_code': r[1],
-                    'h1': r[2],
-                    'title': r[3],
-                    'description': r[4],
-                    'created_at': r[5],
-                } for r in rows
-            ]
+    with db.get_connection(DATABASE_URL) as conn:
+        url = db.get_url_by_id(conn, id)
+        checks = db.get_url_checks(conn, id)
 
     return render_template('url.html', url=url, checks=checks)
 
 
 @app.route('/urls/<int:id>/checks', methods=['POST'])
 def run_check(id):
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT name FROM urls WHERE id = %s", (id,))
-            row = cur.fetchone()
-            if row is None:
-                flash('URL not found', 'danger')
-                return redirect(url_for('index'))
-            url = row[0]
+    with db.get_connection(DATABASE_URL) as conn:
+        url = db.get_url_by_id(conn, id)
+        if url is None:
+            flash('URL не найден', 'danger')
+            return redirect(url_for('index'))
 
     try:
-        response = requests.get(url)
+        response = requests.get(url['name'])
         response.raise_for_status()
         status_code = response.status_code
 
         soup = BeautifulSoup(response.text, 'html.parser')
-        h1_tag = (
-            soup.h1.string.strip()
-            if soup.h1 and soup.h1.string
-            else ''
-        )
-        title_tag = (
-            soup.title.string.strip()
-            if soup.title and soup.title.string
-            else ''
-        )
+        h1_tag = soup.h1.string.strip() if soup.h1 and soup.h1.string else ''
+        title_tag = soup.title.string.strip() if soup.title and soup.title.string else ''
         meta_tag = soup.find('meta', attrs={'name': 'description'})
-        description = (
-            meta_tag['content'].strip()
-            if meta_tag and meta_tag.get('content')
-            else ''
-        )
+        description = meta_tag['content'].strip() if meta_tag and meta_tag.get('content') else ''
     except Exception:
         flash('Произошла ошибка при проверке', 'danger')
         return redirect(url_for('show_url', id=id))
 
-    created_at = datetime.now()
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO url_checks
-                (url_id, status_code, h1, title, description, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                """,
-                (id, status_code, h1_tag, title_tag, description, created_at)
-            )
+    with db.get_connection(DATABASE_URL) as conn:
+        db.insert_check(conn, id, status_code, h1_tag, title_tag, description)
 
     flash('Страница успешно проверена', 'success')
     return redirect(url_for('show_url', id=id))
@@ -155,27 +85,7 @@ def run_check(id):
 
 @app.route('/urls')
 def urls_list():
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT u.id, u.name, u.created_at,
-                       MAX(c.created_at), MAX(c.status_code)
-                FROM urls u
-                LEFT JOIN url_checks c ON u.id = c.url_id
-                GROUP BY u.id
-                ORDER BY u.id DESC
-                """
-            )
-            rows = cur.fetchall()
-            urls = [
-                {
-                    'id': r[0],
-                    'name': r[1],
-                    'created_at': r[2],
-                    'last_check': r[3],
-                    'status_code': r[4]
-                } for r in rows
-            ]
+    with db.get_connection(DATABASE_URL) as conn:
+        urls = db.get_all_urls(conn)
 
     return render_template('urls.html', urls=urls)
