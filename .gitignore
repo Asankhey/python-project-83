@@ -7,4 +7,4 @@ __pycache__/
 *.egg-info/
 poetry.lock
 uv.lock
-build.sh.save__pycache__/
+build.sh.save
