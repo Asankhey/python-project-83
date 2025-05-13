@@ -27,7 +27,7 @@ def add_url():
 
     if not url or not validators.url(url) or len(url) > 255:
         flash('Некорректный URL', 'danger')
-        return render_template('index.html'), 422  # <- Критично для тестов
+        return render_template('index.html'), 422  # критично для теста
 
     parsed_url = urlparse(url)
     normalized_url = f'{parsed_url.scheme}://{parsed_url.netloc}'
@@ -68,10 +68,19 @@ def run_check(id):
         status_code = response.status_code
 
         soup = BeautifulSoup(response.text, 'html.parser')
-        h1_tag = soup.h1.string.strip() if soup.h1 and soup.h1.string else ''
-        title_tag = soup.title.string.strip() if soup.title and soup.title.string else ''
+        h1_tag = (
+            soup.h1.string.strip()
+            if soup.h1 and soup.h1.string else ''
+        )
+        title_tag = (
+            soup.title.string.strip()
+            if soup.title and soup.title.string else ''
+        )
         meta_tag = soup.find('meta', attrs={'name': 'description'})
-        description = meta_tag['content'].strip() if meta_tag and meta_tag.get('content') else ''
+        description = (
+            meta_tag['content'].strip()
+            if meta_tag and meta_tag.get('content') else ''
+        )
     except Exception:
         flash('Произошла ошибка при проверке', 'danger')
         return redirect(url_for('show_url', id=id))
